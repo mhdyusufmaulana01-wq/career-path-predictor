@@ -1,11 +1,11 @@
 import streamlit as st, pandas as pd, numpy as np
 import matplotlib.pyplot as plt, json, re, pickle, os
 from wordcloud import WordCloud
-import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras import layers
 
+@keras.saving.register_keras_serializable()
 class AttentionLayer(layers.Layer):
     def __init__(self, units=64, **kwargs):
         super(AttentionLayer, self).__init__(**kwargs)
@@ -29,38 +29,13 @@ class AttentionLayer(layers.Layer):
         config = super().get_config()
         config.update({"units": self.units})
         return config
-
-class FocalLoss(tf.keras.losses.Loss):
-    def __init__(self, gamma=2.0, alpha=0.25, name="focal_loss", **kwargs):
-        super().__init__(name=name, **kwargs)
-        self.gamma = gamma
-        self.alpha = alpha
-
-    def call(self, y_true, y_pred):
-        y_true = tf.cast(tf.reshape(y_true, [-1]), tf.int32)
-        y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0 - 1e-7)
-        y_true_oh = tf.one_hot(y_true, depth=36)
-        ce_loss = -tf.reduce_sum(y_true_oh * tf.math.log(y_pred), axis=-1)
-        p_t     = tf.reduce_sum(y_true_oh * y_pred, axis=-1)
-        focal_w = self.alpha * tf.pow(1.0 - p_t, self.gamma)
-        return tf.reduce_mean(focal_w * ce_loss)
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({"gamma": self.gamma, "alpha": self.alpha})
-        return config
-
 st.set_page_config(page_title='Career Path Predictor', page_icon='X', layout='wide')
 
 @st.cache_resource
 def load_all():
     with open('saved_model/config.json') as f: cfg = json.load(f)
     with open('saved_model/tokenizer.pkl', 'rb') as f: tok = pickle.load(f)
-    mdl = keras.models.load_model(
-        'saved_model/career_path_model.keras',
-        compile=False,
-        custom_objects={'AttentionLayer': AttentionLayer}
-    )
+    mdl = keras.models.load_model('saved_model/career_path_model.keras', custom_objects={'AttentionLayer': AttentionLayer}, compile=False)
     return mdl, tok, cfg
 
 model, tokenizer, cfg = load_all()
@@ -69,25 +44,13 @@ feat_min = np.array(cfg["feat_min"])
 feat_max = np.array(cfg["feat_max"])
 MAX_LEN  = cfg["max_len"]
 
-from deep_translator import GoogleTranslator
-
 def clean(t):
     t = re.sub(r"http\S+", "", str(t).lower())
     t = re.sub(r"[^a-z\s]", " ", t)
     return re.sub(r"\s+", " ", t).strip()
 
 def predict(text, k=5):
-    try:
-        translator = GoogleTranslator(source='auto', target='en')
-        translated = translator.translate(text)
-    except Exception:
-        translated = text
-        
-    if len(translated.split()) < 80:
-        template = "professional summary highly motivated candidate with extensive experience and strong background in analytical thinking project development and delivering results education bachelor degree key skills include teamwork leadership communication and technical development i am proficient in "
-        translated = template + translated
-        
-    c   = clean(translated)
+    c   = clean(text)
     seq = tokenizer.texts_to_sequences([c])
     pad = pad_sequences(seq, maxlen=MAX_LEN, padding="post", truncating="post")
     ws  = c.split(); nw = len(ws); nu = len(set(ws))
@@ -109,7 +72,6 @@ if page == 'Prediksi Karir':
         if txt.strip():
             res = predict(txt, topk)
             st.subheader('Hasil Prediksi:')
-            st.info('💡 Teks telah diterjemahkan ke Bahasa Inggris dan diproses dengan *context padding* otomatis agar hasil prediksi lebih akurat.')
             for i, (c, p) in enumerate(res, 1):
                 st.progress(p, text=f'{i}. {c.title()} ({p*100:.1f}%)')
         else:
