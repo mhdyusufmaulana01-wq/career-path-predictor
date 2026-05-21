@@ -5,6 +5,14 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.layers import Embedding
+
+# Patch Keras Embedding layer version mismatch (quantization_config)
+original_embedding_init = Embedding.__init__
+def patched_embedding_init(self, *args, **kwargs):
+    kwargs.pop('quantization_config', None)
+    original_embedding_init(self, *args, **kwargs)
+Embedding.__init__ = patched_embedding_init
 
 class AttentionLayer(layers.Layer):
     def __init__(self, units=64, **kwargs):
