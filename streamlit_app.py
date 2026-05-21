@@ -78,19 +78,27 @@ def predict(text, k=5):
         translated = translator.translate(text)
     except Exception:
         translated = text
-        
-    if len(translated.split()) < 80:
-        template = "professional summary highly motivated candidate with extensive experience and strong background in analytical thinking project development and delivering results education bachelor degree key skills include teamwork leadership communication and technical development i am proficient in "
-        translated = template + translated
-        
-    c   = clean(translated)
+
+    # Bersihkan teks
+    c = re.sub(r'http\S+', '', str(translated).lower())
+    c = re.sub(r'[^a-z\s]', ' ', c)
+    c = re.sub(r'\s+', ' ', c).strip()
+    
+    # Kunci Akurasi: Ulangi teks pendek untuk menghindari padding nol yang merusak Attention Layer
+    ws = c.split()
+    if 0 < len(ws) < cfg['max_len']:
+        c = ' '.join((ws * ((cfg['max_len'] // len(ws)) + 1))[:cfg['max_len']])
+
     seq = tokenizer.texts_to_sequences([c])
-    pad = pad_sequences(seq, maxlen=MAX_LEN, padding="post", truncating="post")
-    ws  = c.split(); nw = len(ws); nu = len(set(ws))
-    ft  = np.array([[nw, nu, nu/nw if nw else 0,
-                     sum(len(w) for w in ws)/nw if nw else 0]], dtype="float32")
-    ft  = (ft - feat_min) / (feat_max - feat_min + 1e-8)
-    pr  = model.predict({"text_input": pad, "feat_input": ft}, verbose=0)[0]
+    pad = pad_sequences(seq, maxlen=cfg['max_len'], padding='post', truncating='post')
+
+    # Fitur statistik menggunakan panjang asli
+    nw = len(ws); nu = len(set(ws))
+    ft = np.array([[nw, nu, nu/nw if nw else 0, sum(len(w) for w in ws)/nw if nw else 0]], dtype='float32')
+    ft = np.clip(ft, np.array(cfg['feat_min']), np.array(cfg['feat_max']))
+    ft = (ft - np.array(cfg['feat_min'])) / (np.array(cfg['feat_max']) - np.array(cfg['feat_min']) + 1e-8)
+
+    pr = model.predict({'text_input': pad, 'feat_input': ft}, verbose=0)[0]
     ti  = sorted(range(len(pr)), key=lambda i: -pr[i])[:k]
     return [(lmap[i], float(pr[i])) for i in ti]
 

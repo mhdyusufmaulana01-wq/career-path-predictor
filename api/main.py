@@ -82,13 +82,20 @@ def health(): return {"status": "ok", "classes": len(LMAP)}
 def predict(req: Req):
     if not req.text.strip():
         raise HTTPException(400, "Text kosong")
-    c   = clean(req.text)
+    c = clean(req.text)
+    
+    # Ulangi teks pendek untuk menghindari padding nol yang merusak Attention Layer
+    ws = c.split()
+    if 0 < len(ws) < MAX_LEN:
+        c = ' '.join((ws * ((MAX_LEN // len(ws)) + 1))[:MAX_LEN])
+
     seq = tok.texts_to_sequences([c])
     pad = pad_sequences(seq, maxlen=MAX_LEN, padding="post", truncating="post")
-    ws  = c.split(); nw = len(ws); nu = len(set(ws))
-    ft  = np.array([[nw, nu, nu/nw if nw else 0,
-                     sum(len(w) for w in ws)/nw if nw else 0]], dtype="float32")
-    ft  = (ft - FMIN) / (FMAX - FMIN + 1e-8)
+    
+    nw = len(ws); nu = len(set(ws))
+    ft = np.array([[nw, nu, nu/nw if nw else 0, sum(len(w) for w in ws)/nw if nw else 0]], dtype="float32")
+    ft = np.clip(ft, FMIN, FMAX)
+    ft = (ft - FMIN) / (FMAX - FMIN + 1e-8)
     pr  = model.predict({"text_input": pad, "feat_input": ft}, verbose=0)[0]
     ti  = sorted(range(len(pr)), key=lambda i: -pr[i])[:req.top_k]
     return {"input": req.text[:200], "predictions": [{"rank": i+1, "career": LMAP[idx], "confidence": round(float(pr[idx])*100, 2)} for i, idx in enumerate(ti)]}
