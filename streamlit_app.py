@@ -5,7 +5,6 @@ from tensorflow import keras
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras import layers
 
-@keras.saving.register_keras_serializable()
 class AttentionLayer(layers.Layer):
     def __init__(self, units=64, **kwargs):
         super(AttentionLayer, self).__init__(**kwargs)
