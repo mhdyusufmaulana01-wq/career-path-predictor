@@ -49,6 +49,9 @@ st.set_page_config(page_title='Career Path Predictor', page_icon='X', layout='wi
 
 @st.cache_resource
 def load_all():
+    import sys
+    if 'keras.src.legacy.preprocessing.text' not in sys.modules:
+        sys.modules['keras.src.legacy.preprocessing.text'] = keras.preprocessing.text
     with open('saved_model/config.json') as f: cfg = json.load(f)
     with open('saved_model/tokenizer.pkl', 'rb') as f: tok = pickle.load(f)
     mdl = keras.models.load_model(

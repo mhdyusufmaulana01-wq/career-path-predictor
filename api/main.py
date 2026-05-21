@@ -49,6 +49,11 @@ class FocalLoss(tf.keras.losses.Loss):
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(BASE, '../saved_model/config.json')) as f: cfg = json.load(f)
+
+import sys
+if 'keras.src.legacy.preprocessing.text' not in sys.modules:
+    sys.modules['keras.src.legacy.preprocessing.text'] = keras.preprocessing.text
+    
 with open(os.path.join(BASE, '../saved_model/tokenizer.pkl'), 'rb') as f: tok = pickle.load(f)
 model = keras.models.load_model(
     os.path.join(BASE, '../saved_model/career_path_model.keras'),
