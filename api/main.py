@@ -15,6 +15,11 @@ class AttentionLayer(layers.Layer):
         self.W     = layers.Dense(units, use_bias=False)
         self.V     = layers.Dense(1,     use_bias=False)
 
+    def build(self, input_shape):
+        self.W.build(input_shape)
+        self.V.build((input_shape[0], input_shape[1], self.units))
+        super(AttentionLayer, self).build(input_shape)
+
     def call(self, hidden_states):
         score     = self.V(tf.nn.tanh(self.W(hidden_states)))
         attn_w    = tf.nn.softmax(score, axis=1)
@@ -50,10 +55,7 @@ class FocalLoss(tf.keras.losses.Loss):
 BASE = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(BASE, '../saved_model/config.json')) as f: cfg = json.load(f)
 
-import sys
-if 'keras.src.legacy.preprocessing.text' not in sys.modules:
-    sys.modules['keras.src.legacy.preprocessing.text'] = keras.preprocessing.text
-    
+
 with open(os.path.join(BASE, '../saved_model/tokenizer.pkl'), 'rb') as f: tok = pickle.load(f)
 model = keras.models.load_model(
     os.path.join(BASE, '../saved_model/career_path_model.keras'),
