@@ -51,7 +51,8 @@ with open(os.path.join(BASE, '../saved_model/config.json')) as f: cfg = json.loa
 with open(os.path.join(BASE, '../saved_model/tokenizer.pkl'), 'rb') as f: tok = pickle.load(f)
 model = keras.models.load_model(
     os.path.join(BASE, '../saved_model/career_path_model.keras'),
-    custom_objects={'AttentionLayer': AttentionLayer, 'FocalLoss': FocalLoss}
+    compile=False,
+    custom_objects={'AttentionLayer': AttentionLayer}
 )
 MAX_LEN  = cfg["max_len"]
 FMIN     = np.array(cfg["feat_min"])

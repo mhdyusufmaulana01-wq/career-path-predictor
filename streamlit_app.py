@@ -53,7 +53,8 @@ def load_all():
     with open('saved_model/tokenizer.pkl', 'rb') as f: tok = pickle.load(f)
     mdl = keras.models.load_model(
         'saved_model/career_path_model.keras',
-        custom_objects={'AttentionLayer': AttentionLayer, 'FocalLoss': FocalLoss}
+        compile=False,
+        custom_objects={'AttentionLayer': AttentionLayer}
     )
     return mdl, tok, cfg
 
