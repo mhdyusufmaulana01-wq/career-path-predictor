@@ -1,4 +1,4 @@
-tensorflow-cpu
+tensorflow-cpu<2.16
 streamlit
 pandas
 numpy<2.0
