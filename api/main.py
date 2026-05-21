@@ -26,15 +26,35 @@ class AttentionLayer(layers.Layer):
         context   = tf.reduce_sum(context, axis=1)
         return context, tf.squeeze(attn_w, axis=-1)
 
-    def get_config(self):
-        config = super().get_config()
-        config.update({"units": self.units})
-        return config
+def build_model(cfg):
+    text_input = keras.Input(shape=(cfg['max_len'],), name='text_input')
+    x = layers.Embedding(cfg['vocab_size'], cfg['embed_dim'], name='embedding')(text_input)
+    x = layers.SpatialDropout1D(0.3)(x)
+    x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.2, recurrent_dropout=0.1), name='bilstm')(x)
+    attn_layer = AttentionLayer(units=64, name='attention')
+    context, attn = attn_layer(x)
+    x_text = layers.Dropout(0.4)(context)
+
+    feat_input = keras.Input(shape=(4,), name='feat_input')
+    x_feat = layers.Dense(32, activation='relu', name='feat_dense')(feat_input)
+    x_feat = layers.Dropout(0.3)(x_feat)
+
+    merged = layers.Concatenate(name='merge')([x_text, x_feat])
+    merged = layers.Dense(256, activation='relu', name='dense_1')(merged)
+    merged = layers.BatchNormalization()(merged)
+    merged = layers.Dropout(0.4)(merged)
+    merged = layers.Dense(128, activation='relu', name='dense_2')(merged)
+    merged = layers.Dropout(0.3)(merged)
+
+    output = layers.Dense(cfg['num_classes'], activation='softmax', name='output')(merged)
+    model = keras.Model(inputs=[text_input, feat_input], outputs=output, name='CareerPathClassifier')
+    return model
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(BASE, '../saved_model/config.json')) as f: cfg = json.load(f)
 with open(os.path.join(BASE, '../saved_model/tokenizer.pkl'), 'rb') as f: tok = pickle.load(f)
-model = keras.models.load_model(os.path.join(BASE, '../saved_model/career_path_model.keras'), custom_objects={'AttentionLayer': AttentionLayer}, compile=False)
+model = build_model(cfg)
+model.load_weights(os.path.join(BASE, '../saved_model/career_path_model.keras'))
 MAX_LEN  = cfg["max_len"]
 FMIN     = np.array(cfg["feat_min"])
 FMAX     = np.array(cfg["feat_max"])
