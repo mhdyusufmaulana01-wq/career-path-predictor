@@ -1,6 +1,6 @@
 {
-  "vocab_size": 20000,
-  "max_len": 200,
+  "vocab_size": 30000,
+  "max_len": 300,
   "embed_dim": 128,
   "num_classes": 36,
   "oov_token": "<OOV>",
@@ -53,5 +53,6 @@
     "33": "testing",
     "34": "ui/ux designer",
     "35": "web designing"
-  }
+  },
+  "weights_file": "career_path_model.weights.h5"
 }
