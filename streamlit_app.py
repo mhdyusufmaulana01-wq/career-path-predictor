@@ -64,13 +64,25 @@ feat_min = np.array(cfg["feat_min"])
 feat_max = np.array(cfg["feat_max"])
 MAX_LEN  = cfg["max_len"]
 
+from deep_translator import GoogleTranslator
+
 def clean(t):
     t = re.sub(r"http\S+", "", str(t).lower())
     t = re.sub(r"[^a-z\s]", " ", t)
     return re.sub(r"\s+", " ", t).strip()
 
 def predict(text, k=5):
-    c   = clean(text)
+    try:
+        translator = GoogleTranslator(source='auto', target='en')
+        translated = translator.translate(text)
+    except Exception:
+        translated = text
+        
+    if len(translated.split()) < 80:
+        template = "professional summary highly motivated candidate with extensive experience and strong background in analytical thinking project development and delivering results education bachelor degree key skills include teamwork leadership communication and technical development i am proficient in "
+        translated = template + translated
+        
+    c   = clean(translated)
     seq = tokenizer.texts_to_sequences([c])
     pad = pad_sequences(seq, maxlen=MAX_LEN, padding="post", truncating="post")
     ws  = c.split(); nw = len(ws); nu = len(set(ws))
@@ -92,6 +104,7 @@ if page == 'Prediksi Karir':
         if txt.strip():
             res = predict(txt, topk)
             st.subheader('Hasil Prediksi:')
+            st.info('💡 Teks telah diterjemahkan ke Bahasa Inggris dan diproses dengan *context padding* otomatis agar hasil prediksi lebih akurat.')
             for i, (c, p) in enumerate(res, 1):
                 st.progress(p, text=f'{i}. {c.title()} ({p*100:.1f}%)')
         else:

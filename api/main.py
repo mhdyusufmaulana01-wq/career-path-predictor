@@ -6,6 +6,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+from deep_translator import GoogleTranslator
 
 class AttentionLayer(layers.Layer):
     def __init__(self, units=64, **kwargs):
@@ -81,7 +82,18 @@ def health(): return {"status": "ok", "classes": len(LMAP)}
 def predict(req: Req):
     if not req.text.strip():
         raise HTTPException(400, "Text kosong")
-    c   = clean(req.text)
+        
+    try:
+        translator = GoogleTranslator(source='auto', target='en')
+        translated = translator.translate(req.text)
+    except Exception:
+        translated = req.text
+        
+    if len(translated.split()) < 80:
+        template = "professional summary highly motivated candidate with extensive experience and strong background in analytical thinking project development and delivering results education bachelor degree key skills include teamwork leadership communication and technical development i am proficient in "
+        translated = template + translated
+        
+    c   = clean(translated)
     seq = tok.texts_to_sequences([c])
     pad = pad_sequences(seq, maxlen=MAX_LEN, padding="post", truncating="post")
     ws  = c.split(); nw = len(ws); nu = len(set(ws))
