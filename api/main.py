@@ -4,12 +4,55 @@ from pydantic import BaseModel
 import numpy as np, json, re, pickle, os
 import tensorflow as tf
 from tensorflow import keras
+from tensorflow.keras import layers
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+class AttentionLayer(layers.Layer):
+    def __init__(self, units=64, **kwargs):
+        super(AttentionLayer, self).__init__(**kwargs)
+        self.units = units
+        self.W     = layers.Dense(units, use_bias=False)
+        self.V     = layers.Dense(1,     use_bias=False)
+
+    def call(self, hidden_states):
+        score     = self.V(tf.nn.tanh(self.W(hidden_states)))
+        attn_w    = tf.nn.softmax(score, axis=1)
+        context   = attn_w * hidden_states
+        context   = tf.reduce_sum(context, axis=1)
+        return context, tf.squeeze(attn_w, axis=-1)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"units": self.units})
+        return config
+
+class FocalLoss(tf.keras.losses.Loss):
+    def __init__(self, gamma=2.0, alpha=0.25, name="focal_loss", **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.gamma = gamma
+        self.alpha = alpha
+
+    def call(self, y_true, y_pred):
+        y_true = tf.cast(tf.reshape(y_true, [-1]), tf.int32)
+        y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0 - 1e-7)
+        y_true_oh = tf.one_hot(y_true, depth=36)
+        ce_loss = -tf.reduce_sum(y_true_oh * tf.math.log(y_pred), axis=-1)
+        p_t     = tf.reduce_sum(y_true_oh * y_pred, axis=-1)
+        focal_w = self.alpha * tf.pow(1.0 - p_t, self.gamma)
+        return tf.reduce_mean(focal_w * ce_loss)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"gamma": self.gamma, "alpha": self.alpha})
+        return config
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(BASE, '../saved_model/config.json')) as f: cfg = json.load(f)
 with open(os.path.join(BASE, '../saved_model/tokenizer.pkl'), 'rb') as f: tok = pickle.load(f)
-model = keras.models.load_model(os.path.join(BASE, '../saved_model/career_path_model.keras'))
+model = keras.models.load_model(
+    os.path.join(BASE, '../saved_model/career_path_model.keras'),
+    custom_objects={'AttentionLayer': AttentionLayer, 'FocalLoss': FocalLoss}
+)
 MAX_LEN  = cfg["max_len"]
 FMIN     = np.array(cfg["feat_min"])
 FMAX     = np.array(cfg["feat_max"])
